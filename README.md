@@ -1,2 +1,2 @@
-# Numerical_Simulation_Integrodifferential_equation
+# Numerical Simulation Integrodifferential equation
 Collaboration with Prof. Hidenori Tanaka and Rhys Gould about Learning Dynamics
