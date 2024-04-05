@@ -34,7 +34,7 @@ Clone this repository or download the source code to your local machine. No furt
 To use the equation solvers, import the desired class (`ide_solver_1rst_order` for first-order equations or `ide_solver_2nd_order` for second-order equations) into your Python script and instantiate it with the appropriate parameters:
 
 ```python
-from your_module_name import ide_solver_1rst_order, ide_solver_2nd_order
+from IDE_Solver.Numerical_Solution_IDE import ide_solver_1rst_order, ide_solver_2nd_order
 
 # Define your differential and integral functions, initial conditions, and time span here
 # Example for a first-order equation
@@ -48,8 +48,6 @@ solution2 = solver2.solve()
 solver2.plot_solution()
 ```
 
-Replace `your_module_name` with the actual name of the Python file containing the solver classes.
-
 ## Contributing
 
 Contributions to enhance the functionality or efficiency of the solvers are welcome. Please feel free to fork the repository and submit pull requests.
@@ -60,7 +58,9 @@ We intend to update and improve the solver classes regularly. Check the reposito
 
 ## Authors
 
-- Your Name or Your Organization
+- Carlos Heredia Pimienta, Ph.D - University of Barcelona
+- Prof. Hidenori Tanaka - University of Harvard
+- Rhys Gould - University of Cambridge 
 
 ## License
 
