@@ -1,35 +1,49 @@
-from Optimizers.Adam import grad_f, adam_optimization
+from Optimizers.Adam import grad_f, AdamOptimizer, test_adam_convergence
+from IDE_Solver.Numerical_Solution_IDE import AdamOptimizerIDE
 import matplotlib.pyplot as plt
+import numpy as np
 
-# Define the initial parameter value and the number of iterations
-theta = 0.0
-num_iterations = 1000
+ADAM = False
+ADAMIDE = True
 
-theta_t = {}
+if ADAM:
+    ###########
+    ####ADAM###
+    ###########
 
-for iteration in range(num_iterations):
+    optimizer = AdamOptimizer()
+    theta = np.random.uniform(-1, 1)
+    theta_result = {}
+    epochs = 1e4
 
-    theta_t[iteration] = theta
+    for epoch in range(int(epochs)):  
+        grad = grad_f(theta)
+        theta = optimizer.update(grad, theta)
+        if epoch % 100 == 0:
+            print(f"Iteration {epoch}: theta = {theta}")
+        theta_result[epoch] = theta
 
-    # Compute the gradient of the loss function with respect to theta
-    grad = grad_f(theta)
-    
-    # Update the parameter using the Adam optimization algorithm
-    theta, m, v = adam_optimization(grad, theta, t=iteration+1, m=0.0, v=0.0)
-    
-    # Print the current parameter value every 100 iterations
-    if iteration % 100 == 0:
-        print(f"Iteration {iteration}: theta = {theta:.4f}")
+    print(f"\nFinal parameter value ADAM: theta = {theta:.4f}")
 
-print(f"Final parameter value: theta = {theta:.4f}")
+    # Test the convergence of the Adam optimizer
+    test_adam_convergence(theoretical_result=4.0)
 
-# Plot the parameter trajectory over time
-plt.figure(figsize=(10, 6))
-plt.plot(list(theta_t.keys()), list(theta_t.values()), label='Parameter trajectory')
-plt.xlabel('Iteration')
-plt.ylabel('Parameter value')
-plt.title('Parameter trajectory over time')
-plt.legend()
-plt.grid(True)
-plt.show()
+    # Plot the parameter trajectory over time
+    plt.figure(figsize=(10, 6))
+    plt.plot(list(theta_result.keys()), list(theta_result.values()), label='Parameter trajectory ADAM')
+    plt.xlabel('Iteration')
+    plt.ylabel('Parameter value')
+    plt.title('Parameter trajectory over time')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+elif ADAMIDE:
+    ###################
+    ##### ADAMIDE #####
+    ###################
+    t_span =(1e-12,1e5)
+    theta0 = [np.random.uniform(-1, 1)]
+    optimizer = AdamOptimizerIDE(t_span=t_span, theta0=theta0)
+    optimizer.optimize()
 
