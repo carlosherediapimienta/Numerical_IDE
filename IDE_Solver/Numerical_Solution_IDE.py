@@ -1,19 +1,21 @@
 import numpy as np
 from scipy.integrate import quad, solve_ivp
+from scipy.interpolate import interp1d
 from concurrent.futures import ThreadPoolExecutor
 import warnings
 
 warnings.filterwarnings("ignore")
 
 class AdamOptimizerIDE:
-    def __init__(self, alpha=0.01, beta=[0.9, 0.999], epsilon=1e-8, t_span=(0, 10), theta0=[1]):
+    def __init__(self, alpha=0.01, beta=[0.9, 0.999], epsilon=1e-8, t_span=(0, 10), y0=[1], verbose=False):
         self.alpha = alpha
         self.beta = beta
         self.epsilon = epsilon
         self.t_span = t_span
-        self.theta = np.array(theta0,dtype=np.float64)
+        self.y0 = y0
         self.executor = ThreadPoolExecutor(max_workers=4)
         self.sol = None
+        self.verbose = verbose
 
     class ConvolutionIntegral:
         def __init__(self, f, f2, alpha, beta):
@@ -25,38 +27,49 @@ class AdamOptimizerIDE:
         def G(self, tp, t, i):
             return np.exp(((1 - self.beta[i-1]) / self.alpha) * (tp - t))
 
-        def integral_operator(self, t, theta_func, tpmin, tpmax, i):
-            integrand = lambda tp: self.G(tp, t, i) * (self.f if i == 1 else self.f2)(theta_func(tp))
-            result, error = quad(integrand, tpmin, tpmax)
+        def integral_operator(self, t, y_func, tpmin, tpmax, i):
+            integrand = lambda tp: self.G(tp, t, i) * (self.f if i == 1 else self.f2)(y_func(tp))
+            result, _ = quad(integrand, tpmin, tpmax)
             return result
 
-    def grad_f(self, theta):
-        return 2 * (theta - 4.0)
+    def grad_f(self, y):
+        result = 2 * (y - 4.0)
+        return result
 
-    def grad_f2(self, theta):
-        return self.grad_f(theta) ** 2
+    def grad_f2(self, y):
+        result = self.grad_f(y) ** 2
+        return result
 
     def hat_epsilon(self, t):
-        return np.sqrt(self.alpha * (1 - self.beta[1]**t) / (1 - self.beta[1])) * self.epsilon
-
+        aux_1 = (self.alpha * (1 - self.beta[1]**t)) / (1 - self.beta[1])
+        return np.sqrt(aux_1) * self.epsilon
+    
     def gamma(self, t):
-        return ((1 - self.beta[0]) / (1 - self.beta[0]**t)) * np.sqrt((1 - self.beta[1]**t) / (self.alpha * (1 - self.beta[1])))
+        aux_1 = (1 - self.beta[0]) / (1 - self.beta[0]**t)
+        aux_2 = np.sqrt((1 - self.beta[1]**t) / (self.alpha * (1 - self.beta[1])),dtype=np.float64)
+        return aux_1 * aux_2
+    
+    def y_dot(self, t, y):
 
-    def theta_dot(self, t, theta):
         calculator = self.ConvolutionIntegral(self.grad_f, self.grad_f2, self.alpha, self.beta)
-        theta_func = lambda s: np.interp(s, self.sol.t, self.sol.y[0]) if self.sol is not None else self.theta
-        futures = [self.executor.submit(calculator.integral_operator, t, theta_func, 0, t, i) for i in [1, 2]]
+        y_func = lambda s: np.interp(s, self.sol.t, self.sol.y[0]) if self.sol else y[0]
+
+        futures = [self.executor.submit(calculator.integral_operator, t, y_func, 0, t, i) for i in [1, 2]]
         results = [future.result() for future in futures]
-        F_theta = results[0] / (np.sqrt(results[1]) + self.hat_epsilon(t))
+
+        F_y = results[0] / (np.sqrt(results[1]) + self.hat_epsilon(t))
         gamma_val = self.gamma(t)
-        theta_dot_val = -gamma_val * F_theta
-        return theta_dot_val
+        y_dot_val = -gamma_val * F_y
+
+        return y_dot_val
 
     def optimize(self):
-        self.sol = solve_ivp(self.theta_dot, self.t_span, self.theta, method='RK45', dense_output=True, vectorized=False)
+        self.sol = solve_ivp(self.y_dot, self.t_span, self.y0, method='RK45', dense_output=True, vectorized=False)
         print("Simulation completed. Final results:")
         print(f"Times: {[f'{t:.2f}' for t in self.sol.t]}")
         print(f"Theta values: {[f'{theta:.2f}' for theta in self.sol.y[0]]}")
+
+        return self.sol
 
 # The `ide_solver_1rst_order` class is designed to solve and plot the numerical solution of a
 # 2nd-order integral-differential equation.

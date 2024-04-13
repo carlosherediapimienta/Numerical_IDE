@@ -3,8 +3,11 @@ from IDE_Solver.Numerical_Solution_IDE import AdamOptimizerIDE
 import matplotlib.pyplot as plt
 import numpy as np
 
-ADAM = False
+ADAM = True
 ADAMIDE = True
+
+np.random.seed(33)
+theta = np.random.uniform(-10,10)
 
 if ADAM:
     ###########
@@ -12,10 +15,9 @@ if ADAM:
     ###########
 
     optimizer = AdamOptimizer()
-    theta = np.random.uniform(-1, 1)
     theta_result = {}
-    epochs = 1e4
-
+    epochs = 2e3
+    
     for epoch in range(int(epochs)):  
         grad = grad_f(theta)
         theta = optimizer.update(grad, theta)
@@ -38,12 +40,21 @@ if ADAM:
     plt.grid(True)
     plt.show()
 
-elif ADAMIDE:
+if ADAMIDE:
     ###################
     ##### ADAMIDE #####
     ###################
-    t_span =(1e-12,1e5)
-    theta0 = [np.random.uniform(-1, 1)]
-    optimizer = AdamOptimizerIDE(t_span=t_span, theta0=theta0)
-    optimizer.optimize()
 
+    t_max = 10
+    t_span =(1e-12,t_max)
+    optimizer = AdamOptimizerIDE(t_span=t_span, y0=[np.random.uniform(-10, 10)], verbose=True)
+    sol = optimizer.optimize()
+
+    plt.figure(figsize=(10, 5))
+    plt.plot(sol.t, sol.y[0], label= 'Parameter trajectory ADAM IDE')
+    plt.title('Solution for Theta(t) over Time')
+    plt.xlabel('Time')
+    plt.ylabel('Theta(t)')
+    plt.grid(True)
+    plt.legend()
+    plt.show()
