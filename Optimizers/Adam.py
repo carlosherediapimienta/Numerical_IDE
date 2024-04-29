@@ -1,6 +1,13 @@
 import numpy as np
 
-def grad_f(theta):
+def mse_loss(y_true, y_pred):
+    return np.mean((y_true - y_pred) ** 2)
+
+def grad_mse(theta, x, y_true):
+    y_pred = x * theta
+    return -2 * np.mean((y_true - y_pred) * x)
+
+def grad_f(theta)->float:
     return 2 * (theta - 4)
 
 def test_adam_convergence(epochs:int=10000, cutoff:float=0.001, theoretical_result:float=4.0, theta:float=0.1) -> bool:
