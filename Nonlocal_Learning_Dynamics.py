@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import itertools
 
-ADAM = True
-ADAMIDE = False
-example = 2
+ADAM = False
+ADAMIDE = True
+example = 1
 
 param_grid = {
     'lr': [0.1, 0.01, 0.001],
@@ -21,12 +21,13 @@ np.random.seed(33)
 theta_initial = np.random.uniform(-10,10)
 epochs = 2e3
 
+fig, axs = plt.subplots(ncols=3, figsize=(10, 15), sharex=True, sharey=True)
+
 if ADAM:
     ###########
     ####ADAM###
     ###########
 
-    fig, axs = plt.subplots(ncols=3, figsize=(10, 15), sharex=True, sharey=True)
     fig.suptitle('Convergence Trajectories for Different Adam Configurations')
 
     if example == 2:
@@ -86,16 +87,31 @@ if ADAMIDE:
     ##### ADAMIDE #####
     ###################
 
-    t_max = 10
-    t_span =(1e-12,t_max)
-    optimizer = AdamOptimizerIDE(t_span=t_span, y0=[np.random.uniform(-10, 10)], verbose=True)
-    sol = optimizer.optimize()
+    fig.suptitle('Convergence Trajectories for Different first-order nonlocal continuous Adam Configurations')
 
-    plt.figure(figsize=(10, 5))
-    plt.plot(sol.t, sol.y[0], label= 'Parameter trajectory ADAM IDE')
-    plt.title('Solution for Theta(t) over Time')
-    plt.xlabel('Time')
-    plt.ylabel('Theta(t)')
-    plt.grid(True)
-    plt.legend()
+    t_max = 15
+    t_span =(1e-12,t_max)
+
+    y0 = [np.random.uniform(-10, 10)]
+
+    for i, lr in enumerate(param_grid['lr']):
+        ax = axs[i]
+
+        for params in [p for p in all_params if p['lr'] == lr]:
+            print(f'Adam Configuration: {params}')
+
+            optimizer = AdamOptimizerIDE(t_span=t_span, alpha=lr, beta = [params['beta1'], params['beta2']], y0=y0, example=example, verbose=False)
+            sol = optimizer.optimize()
+
+            print(f"\nFinal parameter value ADAMIDE: theta = {sol.y[0][-1]:.4f}")
+
+            label = f"beta1={params['beta1']}, beta2={params['beta2']}"
+            ax.plot(sol.t, sol.y[0], label=label)
+            ax.set_title(f'Learning Rate = {lr}')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Theta value')
+            ax.legend()
+            ax.grid(True)
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()

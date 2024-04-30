@@ -7,7 +7,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 class AdamOptimizerIDE:
-    def __init__(self, alpha=0.01, beta=[0.9, 0.999], epsilon=1e-8, t_span=(0, 10), y0=[1], verbose=False):
+    def __init__(self, alpha=0.01, beta =[0.9,0.999], epsilon=1e-8, t_span=(0, 10), y0=[1], example=1, verbose=False):
         self.alpha = alpha
         self.beta = beta
         self.epsilon = epsilon
@@ -16,6 +16,7 @@ class AdamOptimizerIDE:
         self.executor = ThreadPoolExecutor(max_workers=4)
         self.sol = None
         self.verbose = verbose
+        self.example = example
 
     class ConvolutionIntegral:
         def __init__(self, f, f2, alpha, beta):
@@ -65,9 +66,11 @@ class AdamOptimizerIDE:
 
     def optimize(self):
         self.sol = solve_ivp(self.y_dot, self.t_span, self.y0, method='RK45', dense_output=True, vectorized=False)
-        print("Simulation completed. Final results:")
-        print(f"Times: {[f'{t:.2f}' for t in self.sol.t]}")
-        print(f"Theta values: {[f'{theta:.2f}' for theta in self.sol.y[0]]}")
+
+        if self.verbose:
+            print("Simulation completed. Final results:")
+            print(f"Times: {[f'{t:.2f}' for t in self.sol.t]}")
+            print(f"Theta values: {[f'{theta:.2f}' for theta in self.sol.y[0]]}")
 
         return self.sol
 
