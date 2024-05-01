@@ -6,7 +6,7 @@ import itertools
 
 ADAM = False
 ADAMIDE = True
-example = 1
+example = 2
 
 param_grid = {
     'lr': [0.1, 0.01, 0.001],
@@ -14,12 +14,20 @@ param_grid = {
     'beta2': [0.99, 0.5, 0.35],
 }
 
+
 # Generar todas las combinaciones posibles de parámetros
 all_params = [dict(zip(param_grid.keys(), v)) for v in itertools.product(*param_grid.values())]
 
 np.random.seed(33)
 theta_initial = np.random.uniform(-10,10)
 epochs = 2e3
+
+if example == 2:
+    x = np.array([1, 2, 3, 4, 5]) 
+    y_true = np.array([2, 4, 6, 8, 10]) # True values for y = 2x
+else:
+    y_true = None
+    x = None
 
 fig, axs = plt.subplots(ncols=3, figsize=(10, 15), sharex=True, sharey=True)
 
@@ -29,10 +37,6 @@ if ADAM:
     ###########
 
     fig.suptitle('Convergence Trajectories for Different Adam Configurations')
-
-    if example == 2:
-        x = np.array([1, 2, 3, 4, 5]) 
-        y_true = np.array([2, 4, 6, 8, 10]) # True values for y = 2x
 
     for i, lr in enumerate(param_grid['lr']):
         ax = axs[i]
@@ -98,18 +102,28 @@ if ADAMIDE:
         ax = axs[i]
 
         for params in [p for p in all_params if p['lr'] == lr]:
-            print(f'Adam Configuration: {params}')
+            print(f'\nNonlocal continuous Adam Configuration: {params}')
 
-            optimizer = AdamOptimizerIDE(t_span=t_span, alpha=lr, beta = [params['beta1'], params['beta2']], y0=y0, example=example, verbose=False)
-            sol = optimizer.optimize()
+            optimizer = AdamOptimizerIDE(t_span=t_span, alpha=lr, beta=[params['beta1'], params['beta2']], 
+                                         y0=y0, example=example, y_true=y_true, x=x, verbose=False)
+            
+            if example == 1:
+                sol = optimizer.optimize()
+            elif example == 2:
+                sol, losses_IDE = optimizer.optimize_losses()
 
-            print(f"\nFinal parameter value ADAMIDE: theta = {sol.y[0][-1]:.4f}")
+            print(f"Final parameter value ADAMIDE: theta = {sol.y[0][-1]:.4f}")
 
             label = f"beta1={params['beta1']}, beta2={params['beta2']}"
-            ax.plot(sol.t, sol.y[0], label=label)
+            if example == 1:
+                ax.plot(sol.t, sol.y[0], label=label)
+                ax.set_ylabel('Theta value')
+            elif example == 2:
+                ax.plot(losses_IDE['Time'], losses_IDE['Loss'], label=label)
+                ax.set_ylabel('Loss')
             ax.set_title(f'Learning Rate = {lr}')
+            ax.set_yscale('log')
             ax.set_xlabel('Time')
-            ax.set_ylabel('Theta value')
             ax.legend()
             ax.grid(True)
 
