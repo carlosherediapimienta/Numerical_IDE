@@ -1,12 +1,13 @@
 from optimizer.adam import grad_f, Adam, mse_loss, grad_mse
-from ide_solver.ide import AdamIDE
+from ide_solver.ide import AdamIDE, AdamIDE2
 import matplotlib.pyplot as plt
 import numpy as np
 import itertools
 import time
 
-ADAM = True
+ADAM = False
 ADAMIDE = False
+ADAMIDE2 = True
 example = 1
 
 param_grid = {
@@ -106,6 +107,56 @@ if ADAMIDE:
             print(f'\nNonlocal continuous Adam Configuration: {params}')
 
             optimizer = AdamIDE(t_span=t_span, alpha=lr, beta=[params['beta1'], params['beta2']], y0=y0, example=example, y_true=y_true, x=x, verbose=False)
+            
+            if example == 1:
+                sol = optimizer.optimize()
+            elif example == 2:
+                sol, losses_IDE = optimizer.optimize_losses()
+
+            elapsed_time = (time.time() - start_time)/60
+
+            print(f"Final parameter value ADAMIDE: theta = {sol.y[0][-1]:.4f}, with elapsed time: {elapsed_time:.2f} minutes.")
+
+            label = f"beta1={params['beta1']}, beta2={params['beta2']}"
+            if example == 1:
+                ax.plot(sol.t, sol.y[0], label=label)
+                ax.set_ylabel('Theta value')
+            elif example == 2:
+                ax.plot(losses_IDE['Time'], losses_IDE['Loss'], label=label)
+                ax.set_ylabel('Loss')
+            ax.set_title(f'Learning Rate = {lr}')
+            ax.set_yscale('log' if example == 2 else 'linear')
+            ax.set_xlabel('Time')
+            ax.legend()
+            ax.grid(True)
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.show()
+
+
+if ADAMIDE2:
+    ###################
+    ##### ADAMIDE2 #####
+    ###################
+
+    fig.suptitle('Convergence Trajectories for Different second-order nonlocal continuous Adam Configurations')
+
+    t_max = 15
+    t_span =(1e-12,t_max)
+    y0 = [np.random.uniform(-10, 10), np.random.uniform(-10, 10)]
+    omega = 1
+
+    for i, lr in enumerate(param_grid['lr']):
+        ax = axs[i]
+        filtered_params = [p for p in all_params if p['lr'] == lr]
+
+        for params in filtered_params:
+
+            start_time = time.time()
+
+            print(f'\nNonlocal continuous Adam Configuration: {params}')
+
+            optimizer = AdamIDE2(t_span=t_span, omega=omega, alpha=lr, beta=[params['beta1'], params['beta2']], y0=y0, example=example, y_true=y_true, x=x, verbose=False)
             
             if example == 1:
                 sol = optimizer.optimize()
