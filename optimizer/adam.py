@@ -11,7 +11,7 @@ def grad_f(theta)->float:
     return 2 * (theta - 4)
 
 def test_adam_convergence(epochs:int=10000, cutoff:float=0.001, theoretical_result:float=4.0, theta:float=0.1) -> bool:
-    optimizer = AdamOptimizer()  
+    optimizer = Adam()  
     for _ in range(epochs):  
         grad = grad_f(theta)
         theta = optimizer.update(grad, theta)
@@ -22,7 +22,7 @@ def test_adam_convergence(epochs:int=10000, cutoff:float=0.001, theoretical_resu
     return False
 
 
-class AdamOptimizer:
+class Adam:
     def __init__(self, lr:float=0.01, beta1:float=0.9, beta2:float=0.999, epsilon:float=1e-8):
         self.lr = lr
         self.beta1 = beta1

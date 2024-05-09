@@ -127,6 +127,19 @@ class AdamOptimizerIDE:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 # The `ide_solver_1rst_order` class is designed to solve and plot the numerical solution of a
 # 2nd-order integral-differential equation.
 class ide_solver_2nd_order:
