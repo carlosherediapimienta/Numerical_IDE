@@ -181,7 +181,7 @@ class AdamIDE2:
     def optimize(self):
         t_eval = np.linspace(self.t_span[0], self.t_span[1], 500)
         self.sol = solve_ivp(self.system_dynamics, self.t_span, self.y0, method='RK45',
-                              t_eval=t_eval, rtol=1e-4, atol=1e-7, vectorized=False, dense_output=False)
+                              t_eval=t_eval, rtol=1e-3, atol=1e-6, vectorized=False, dense_output=False)
 
         if self.verbose:
             print("Simulation completed. Final results:")
