@@ -25,11 +25,12 @@ class AdamIDE:
             self.alpha = alpha
             self.beta = beta
 
-        def G(self, tp, t, i):
-            return np.exp(((1 - self.beta[i-1]) / self.alpha) * (tp - t))
+        def G(self, t, tp, i):
+            delta_t = t - tp
+            return self.alpha * np.exp(-(1 - self.beta[i-1]) / self.alpha * delta_t)
 
         def integral_operator(self, f, t, y_func, tpmin, tpmax, i):
-            integrand = lambda tp: self.G(tp, t, i) * f(y_func(tp))
+            integrand = lambda tp: self.G(t, tp, i) * f(y_func(tp))
             result, _ = quad(integrand, tpmin, tpmax)
             return result
 
@@ -53,10 +54,10 @@ class AdamIDE:
         return self.grad_mse(y) ** 2
 
     def hat_epsilon(self, t):
-        return np.sqrt((self.alpha * (1 - self.beta[1]**t)) / (1 - self.beta[1])) * self.epsilon
+        return self.alpha * np.sqrt((1 - self.beta[1]**t) / (1 - self.beta[1])) * self.epsilon
     
     def gamma(self, t):
-        return (1 - self.beta[0]) / (1 - self.beta[0]**t) * np.sqrt((1 - self.beta[1]**t) / (self.alpha * (1 - self.beta[1])))
+        return (1 - self.beta[0]) / (self.alpha*(1 - self.beta[0]**t)) * np.sqrt((1 - self.beta[1]**t) / ( 1 - self.beta[1]))
 
     def y_dot(self, t, y):
         calculator = self.ConvolutionIntegral(self.alpha, self.beta)
@@ -95,7 +96,7 @@ class AdamIDE:
 #################### IDE with second order ODE ####################
 
 class AdamIDE2:
-    def __init__(self,  alpha=0.01, beta=[0.9, 0.999], epsilon=1e-8, omega= 1, t_span=(0, 10), y0=[1, 0], example=1, y_true=None, x=None, verbose=False):
+    def __init__(self,  alpha=0.01, beta=[0.9, 0.999], epsilon=1e-8, omega= 0, t_span=(0, 10), y0=[1, 0], example=1, y_true=None, x=None, verbose=False):
         self.a = alpha/2  # Coefficient for the second derivative
         self.b = 1  # Coefficient for the first derivative
         self.c = omega/alpha  # Coefficient for the function y
@@ -117,11 +118,23 @@ class AdamIDE2:
             self.alpha = alpha
             self.beta = beta
 
-        def G(self, tp, t, i):
-            return np.exp(((1 - self.beta[i-1]) / self.alpha) * (tp - t))
+        def K(self, t, tp, i):
+            delta_t = t - tp
+            exp_term = np.exp(- delta_t / self.alpha)
+            
+            beta_value = self.beta[i - 1]
+            
+            if beta_value == 0.5:
+                return 2 * delta_t * exp_term
+            elif beta_value > 0.5:
+                sqrt_term = np.sqrt(2 * beta_value - 1)
+                return (2 * self.alpha) / sqrt_term  * exp_term * np.sinh(sqrt_term / self.alpha * delta_t)
+            else: # beta_value < 0.5
+                sqrt_term = np.sqrt(1 - 2 * beta_value)
+                return (2 * self.alpha) / sqrt_term * exp_term * np.sin(sqrt_term / self.alpha * delta_t)
 
         def integral_operator(self, f, t, y_func, tpmin, tpmax, i):
-            integrand = lambda tp: self.G(tp, t, i) * f(y_func(tp))
+            integrand = lambda tp: self.K(t, tp, i) * f(y_func(tp))
             result, _ = quad(integrand, tpmin, tpmax)
             return result
 
@@ -145,13 +158,13 @@ class AdamIDE2:
         return self.grad_mse(y) ** 2
 
     def hat_epsilon(self, t):
-        return np.sqrt((self.alpha * (1 - self.beta[1]**t)) / (1 - self.beta[1])) * self.epsilon
+        return self.alpha * np.sqrt((1 - self.beta[1]**t) / (1 - self.beta[1])) * self.epsilon
     
     def gamma(self, t):
-        return (1 - self.beta[0]) / (1 - self.beta[0]**t) * np.sqrt((1 - self.beta[1]**t) / (self.alpha * (1 - self.beta[1])))
+        return (1 - self.beta[0]) / (self.alpha*(1 - self.beta[0]**t)) * np.sqrt((1 - self.beta[1]**t) / ( 1 - self.beta[1]))
 
     def system_dynamics(self, t, y):
-        dy, ddy = y[1], y
+        dydt = y[1]
         calculator = self.ConvolutionIntegral(self.alpha, self.beta)
         grad = self.grad_mse if self.example == 2 else self.grad_f
         grad2 = self.grad_mse2 if self.example == 2 else self.grad_f2
@@ -161,13 +174,14 @@ class AdamIDE2:
         integral2 = calculator.integral_operator(grad2, t, y_func, 0, t, 2)
 
         F_y = integral1 / (np.sqrt(integral2) + self.hat_epsilon(t))
-        acceleration = (F_y - self.b * dy - self.c * ddy[0]) / self.a
+        ddyddt = (-self.gamma(t)*F_y - self.b * y[1] - self.c * y[0]) / self.a
 
-        return [dy, -self.gamma(t) * acceleration]
+        return [dydt, ddyddt]
 
     def optimize(self):
         t_eval = np.linspace(self.t_span[0], self.t_span[1], 500)
-        self.sol = solve_ivp(self.system_dynamics, self.t_span, self.y0, method='RK45', t_eval=t_eval, rtol=1e-4, atol=1e-7, vectorized=False, dense_output=False)
+        self.sol = solve_ivp(self.system_dynamics, self.t_span, self.y0, method='RK45',
+                              t_eval=t_eval, rtol=1e-4, atol=1e-7, vectorized=False, dense_output=False)
 
         if self.verbose:
             print("Simulation completed. Final results:")
