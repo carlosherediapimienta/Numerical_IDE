@@ -7,7 +7,7 @@ warnings.filterwarnings("ignore")
 
 class AdamIDE:
     def __init__(self, alpha=0.01, beta=[0.9, 0.999], epsilon=1e-8, t_max= 15, t_0 = 1e-12, y0=[1], example=1,
-                  y_true=None, x=None, verbose=False, second_order=False, omega=0):
+                  y_true=None, x=None, verbose=False, second_order=False, omega=0, lambd = 0, rtol=1e-3, atol=1e-6):
         self.alpha = alpha
         self.beta = beta
         self.epsilon = epsilon
@@ -22,6 +22,9 @@ class AdamIDE:
         self.sol = None
         self.second_order = second_order
         self.omega = omega
+        self.lambd = lambd
+        self.rtol = rtol
+        self.atol = atol
         if second_order:
             self.a = alpha / 2
             self.b = 1
@@ -30,40 +33,49 @@ class AdamIDE:
             self.losses = []
 
     class ConvolutionIntegral:
-        def __init__(self, alpha, beta):
+        def __init__(self, alpha, beta, lambd):
             self.alpha = alpha
             self.beta = beta
+            self.lambd = lambd
 
         def G(self, t, tp, i):
             delta_t = t - tp
-            return self.alpha * np.exp(-((1 - self.beta[i-1]) / self.alpha) * delta_t)
+            exp_term = np.exp(-((1 - self.beta[i-1]) / self.alpha) * delta_t)
+            if exp_term != 0.0:
+                return self.alpha * exp_term
+            else:
+                return 0.0
+                
 
         def K(self, t, tp, i):
             delta_t = t - tp
             exp_term = np.exp(- delta_t / self.alpha)
             beta_value = self.beta[i - 1]
-            if beta_value == 0.5:
-                return 2 * delta_t * exp_term
-            elif beta_value > 0.5:
-                sqrt_term = np.sqrt(2 * beta_value - 1)
-                sinh_value = np.sinh(sqrt_term / self.alpha * delta_t)
-                if np.any(np.isinf(sinh_value)):
-                    log_exp_term = np.log(exp_term)
+            if exp_term != 0.0:
+                if beta_value == 0.5:
+                    return 2 * delta_t * exp_term
+                elif beta_value > 0.5:
+                    sqrt_term = np.sqrt(2 * beta_value - 1)
+                    sinh_value = np.sinh(sqrt_term / self.alpha * delta_t)
+                    if np.any(np.isinf(sinh_value)):
+                        log_exp_term = np.log(exp_term)
 
-                    sinh_arg = sqrt_term / self.alpha * delta_t 
-                    log_sinh_term = sinh_arg - np.log(2)
+                        sinh_arg = sqrt_term / self.alpha * delta_t 
+                        log_sinh_term = sinh_arg - np.log(2)
 
-                    log_values = log_exp_term + log_sinh_term
-                    return (2 * self.alpha) / sqrt_term * np.exp(log_values)                
+                        log_values = log_exp_term + log_sinh_term
+                        return (2 * self.alpha) / sqrt_term * np.exp(log_values)                
+                    else:
+                        return (2 * self.alpha) / sqrt_term * exp_term * np.sinh(sqrt_term / self.alpha * delta_t)
                 else:
-                    return (2 * self.alpha) / sqrt_term * exp_term * np.sinh(sqrt_term / self.alpha * delta_t)
+                    sqrt_term = np.sqrt(1 - 2 * beta_value)
+                    return (2 * self.alpha) / sqrt_term * exp_term * np.sin(sqrt_term / self.alpha * delta_t)
             else:
-                sqrt_term = np.sqrt(1 - 2 * beta_value)
-                return (2 * self.alpha) / sqrt_term * exp_term * np.sin(sqrt_term / self.alpha * delta_t)
+                return 0.0
 
         def integral_operator(self, f, t, y_func, tpmin, tpmax, i, second_order=False):
             kernel = self.K if second_order else self.G
-            integrand = lambda tp: kernel(t, tp, i) * f(y_func(tp))
+            integrand = lambda tp: kernel(t, tp, i) * (f(y_func(tp)) + self.lambd / 2 * y_func(tp))
             result, _ = quad(integrand, tpmin, tpmax)
             return result
 
@@ -93,13 +105,12 @@ class AdamIDE:
         return (1 - self.beta[0]) / (self.alpha*(1 - self.beta[0]**t)) * np.sqrt((1 - self.beta[1]**t) / (1 - self.beta[1]))
 
     def y_dot(self, t, y):
-        calculator = self.ConvolutionIntegral(self.alpha, self.beta)
         grad = self.grad_mse if self.example == 2 else self.grad_f
         grad2 = self.grad_mse2 if self.example == 2 else self.grad_f2
         y_func = lambda s: np.interp(s, self.sol.t, self.sol.y[0]) if self.sol else y[0]
 
-        integral1 = calculator.integral_operator(grad, t, y_func, self.t_0, t, 1, second_order=self.second_order)
-        integral2 = calculator.integral_operator(grad2, t, y_func, self.t_0, t, 2, second_order=self.second_order)
+        integral1 = self.calculator.integral_operator(grad, t, y_func, self.t_0, t, 1, second_order=self.second_order)
+        integral2 = self.calculator.integral_operator(grad2, t, y_func, self.t_0, t, 2, second_order=self.second_order)
 
         F_y = integral1 / (np.sqrt(integral2) + self.hat_epsilon(t))
         if self.second_order:
@@ -112,9 +123,8 @@ class AdamIDE:
     def optimize(self):
         t_eval = np.linspace(self.t_span[0], self.t_span[1], 800)
         method = 'RK45'
-        rtol = 0.05 if self.second_order else 1e-5
-        atol = 1e-4 if self.second_order else 1e-7
-        self.sol = solve_ivp(self.y_dot, self.t_span, self.y0, method=method, t_eval=t_eval, rtol=rtol, atol=atol, vectorized=False, dense_output=False)
+        self.calculator = self.ConvolutionIntegral(self.alpha, self.beta, self.lambd)
+        self.sol = solve_ivp(self.y_dot, self.t_span, self.y0, method=method, t_eval=t_eval, rtol=self.rtol, atol=self.atol, vectorized=False, dense_output=False)
 
         if self.verbose:
             print("Simulation completed. Final results:")
