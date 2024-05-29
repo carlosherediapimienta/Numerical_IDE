@@ -23,20 +23,33 @@ def test_adam_convergence(epochs:int=10000, cutoff:float=0.001, theoretical_resu
 
 
 class Adam:
-    def __init__(self, lr:float=0.01, beta1:float=0.9, beta2:float=0.999, epsilon:float=1e-8):
+    def __init__(self, lr:float=0.01, beta1:float=0.9, beta2:float=0.999, epsilon:float=1e-8, weight_decay: float = 0, lambda_l2: float = 0):
         self.lr = lr
         self.beta1 = beta1
         self.beta2 = beta2
         self.epsilon = epsilon
+        self.weight_decay = weight_decay
+        self.lambda_l2 = lambda_l2
         self.m = 0
         self.v = 0
         self.t = 0
 
     def update(self, grad, theta):
         self.t += 1
+
+        if self.lambda_l2 != 0:
+            grad += self.lambda_l2 / 2 * theta
+
         self.m = self.beta1 * self.m + (1 - self.beta1) * grad
         self.v = self.beta2 * self.v + (1 - self.beta2) * (grad ** 2)
         m_hat = self.m / (1 - self.beta1 ** self.t)
         v_hat = self.v / (1 - self.beta2 ** self.t)
-        theta -= self.lr * m_hat / (np.sqrt(v_hat) + self.epsilon)
+        
+        theta_update = self.lr * m_hat / (np.sqrt(v_hat) + self.epsilon)
+        
+        if self.weight_decay != 0:
+            theta = (1 - self.weight_decay) * theta - theta_update
+        else:
+            theta -= theta_update
+        
         return theta
