@@ -46,7 +46,6 @@ class AdamIDE:
             exp_term = np.exp(-((1 - self.beta[i-1]) / self.alpha) * delta_t)
             return self.alpha * exp_term if exp_term != 0.0 else 0.0
                 
-
         def K(self, t, tp, i):
             delta_t = t - tp
             exp_term = np.exp(- delta_t / self.alpha)
@@ -113,7 +112,7 @@ class AdamIDE:
         integral2 = self.calculator.integral_operator(grad2, t, y_func, self.t_0, t, 2, second_order=self.second_order)
 
         F_y = integral1 / (np.sqrt(integral2) + self.hat_epsilon(t))
-        print(t, integral1, integral2, F_y, y[0])
+        
         if self.second_order:
             dydt = y[1]
             ddyddt = (-self.gamma(t)*F_y - self.b * y[1] - self.c * y[0]) / self.a 
